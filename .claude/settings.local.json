@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__visualize__show_widget"
+    ]
+  }
+}
