@@ -21,11 +21,12 @@ export function PortfolioTab() {
     setLoading(true)
     try {
       const txRes = await fetch("/api/transactions")
-      const transactions: Transaction[] = await txRes.json()
-      if (transactions.length === 0) { 
+      if (!txRes.ok) { setPositions([]); return }
+      const txData = await txRes.json()
+      const transactions: Transaction[] = Array.isArray(txData) ? txData : []
+      if (transactions.length === 0) {
         setPositions([])
-        setLoading(false)
-        return 
+        return
       }
       const tickers = [...new Set(transactions.map((t) => t.ticker))]
       const qRes = await fetch(`/api/quotes/${tickers.join(",")}`)

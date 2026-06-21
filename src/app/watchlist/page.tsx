@@ -19,7 +19,8 @@ export default function WatchlistPage() {
 
   const loadItems = useCallback(async () => {
     const res = await fetch("/api/watchlist")
-    const data: WatchlistItem[] = await res.json()
+    const json = res.ok ? await res.json() : []
+    const data: WatchlistItem[] = Array.isArray(json) ? json : []
     setItems(data)
     return data
   }, [])

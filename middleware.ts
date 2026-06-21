@@ -1,13 +1,22 @@
-import { auth } from "@/auth"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-export default auth((req) => {
-  if (!req.auth) {
+export async function middleware(req: NextRequest) {
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    // NextAuth v5 usa "authjs.session-token" em dev e "__Secure-..." em prod
+    cookieName:
+      process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token",
+  })
+
+  if (!token) {
     return NextResponse.redirect(new URL("/login", req.url))
   }
-})
+}
 
 export const config = {
-  // Protege todas as páginas exceto /login, /api/auth/* e assets estáticos
   matcher: ["/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)"],
 }

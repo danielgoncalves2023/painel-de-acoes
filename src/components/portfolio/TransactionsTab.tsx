@@ -17,7 +17,8 @@ export function TransactionsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     const res = await fetch("/api/transactions")
-    setTransactions(await res.json())
+    const data = res.ok ? await res.json() : []
+    setTransactions(Array.isArray(data) ? data : [])
     setLoading(false)
   }, [])
 
