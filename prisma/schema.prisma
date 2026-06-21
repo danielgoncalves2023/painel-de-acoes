@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  ticker    String
+  type      String
+  quantity  Float
+  price     Float
+  date      DateTime
+  brokerage Float    @default(0)
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Watchlist {
+  id      String   @id @default(cuid())
+  ticker  String   @unique
+  note    String?
+  addedAt DateTime @default(now())
+}
+
+model TargetAllocation {
+  id        String   @id @default(cuid())
+  ticker    String   @unique
+  targetPct Float    @default(0) // Porcentagem alvo (0 a 100)
+  updatedAt DateTime @updatedAt @default(now())
+}
+
+model StockFundamental {
+  ticker        String   @id
+  name          String
+  lpa           Float
+  vpa           Float
+  roe           Float?
+  margemLiquida Float?
+  payout        Float?
+  historyDivRaw String   // JSON contendo datas e valores dos dividendos passados
+  updatedAt     DateTime @updatedAt
+}

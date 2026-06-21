@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "mcp__visualize__show_widget"
+      "mcp__visualize__show_widget",
+      "PowerShell(mkdir \"C:\\\\Users\\\\danie\\\\Documents\\\\painel-acoes\\\\src\\\\components\\\\layout\" -Force)",
+      "PowerShell(mkdir \"C:\\\\Users\\\\danie\\\\Documents\\\\painel-acoes\\\\src\\\\components\\\\dashboard\" -Force)",
+      "PowerShell(mkdir \"C:\\\\Users\\\\danie\\\\Documents\\\\painel-acoes\\\\src\\\\components\\\\portfolio\" -Force)",
+      "PowerShell(mkdir \"C:\\\\Users\\\\danie\\\\Documents\\\\painel-acoes\\\\src\\\\components\\\\stock\" -Force)",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(cd C:\\\\Users\\\\danie\\\\Documents\\\\painel-acoes; npx tsc --noEmit --skipLibCheck 2>&1 | Where-Object { $_ -notmatch \"prisma.config\" } | Select-Object -First 30)",
+      "PowerShell([System.DayOfWeek]\\(Get-Date \"2026-06-19\"\\).DayOfWeek; [System.DayOfWeek]\\(Get-Date \"2026-06-22\"\\).DayOfWeek; [System.DayOfWeek]\\(Get-Date \"2026-06-23\"\\).DayOfWeek; [System.DayOfWeek]\\(Get-Date \"2026-06-24\"\\).DayOfWeek)"
     ]
   }
 }
