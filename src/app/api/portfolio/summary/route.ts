@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { calcPositions, calcWeightedDY } from "@/lib/calculations"
 import { getQuotes } from "@/lib/brapi"
 import { cacheGet, cacheSet } from "@/lib/cache"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -31,12 +32,15 @@ async function getCDIRate(): Promise<number> {
 }
 
 export async function GET() {
-  const cacheKey = "portfolio:summary"
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
+  const cacheKey = `portfolio:summary:${userId}`
   const cached = cacheGet<{ totalValue: number; weightedDY: number; cdiRate: number }>(cacheKey)
   if (cached) return NextResponse.json(cached)
 
   try {
-    const transactions = await prisma.transaction.findMany()
+    const transactions = await prisma.transaction.findMany({ where: { userId } })
     if (transactions.length === 0) {
       return NextResponse.json({ totalValue: 0, weightedDY: 0, cdiRate: 10.75 })
     }

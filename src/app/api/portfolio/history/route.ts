@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
 import { cacheGet, cacheSet } from "@/lib/cache"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -21,12 +22,16 @@ interface DivPoint {
 }
 
 export async function GET(request: Request) {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   try {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get("period") || "month" // "week" | "month" | "year"
 
     // 1. Busca todas as transações da carteira no banco
     const transactions = await prisma.transaction.findMany({
+      where: { userId },
       orderBy: { date: "asc" },
     })
 

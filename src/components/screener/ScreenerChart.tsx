@@ -88,7 +88,8 @@ export function ScreenerChart({ selectedTickers }: Props) {
 
           const point: ChartDataPoint = {
             dateLabel,
-            "IBOVESPA (IBOV)": parseFloat(ibovReturn.toFixed(2))
+            "IBOVESPA (IBOV)": parseFloat(ibovReturn.toFixed(2)),
+            "__ibov_right__": parseFloat(ibovReturn.toFixed(2)),
           }
 
           // Adiciona os retornos das ações selecionadas
@@ -301,7 +302,7 @@ export function ScreenerChart({ selectedTickers }: Props) {
               {/* Linha transparente no eixo direito — força Recharts a renderizar o YAxis direito */}
               <Line
                 yAxisId="right"
-                dataKey="IBOVESPA (IBOV)"
+                dataKey="__ibov_right__"
                 stroke="transparent"
                 strokeWidth={0}
                 dot={false}

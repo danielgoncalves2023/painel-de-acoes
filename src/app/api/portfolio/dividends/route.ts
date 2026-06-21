@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -20,9 +21,13 @@ interface DividendItem {
 }
 
 export async function GET() {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   try {
     // 1. Busca todas as transações do investidor
     const transactions = await prisma.transaction.findMany({
+      where: { userId },
       orderBy: { date: "asc" },
     })
 

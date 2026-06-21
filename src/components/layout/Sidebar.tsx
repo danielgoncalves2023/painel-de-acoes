@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 import {
   Briefcase,
   Calendar,
@@ -9,8 +10,18 @@ import {
   Star,
   BarChart2,
   TrendingUp,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
+
+interface Props {
+  user: {
+    name?: string | null
+    email?: string | null
+    image?: string | null
+  }
+}
 
 const links = [
   { href: "/screener", label: "Radar B3", icon: Compass },
@@ -21,7 +32,7 @@ const links = [
   { href: "/compare", label: "Comparar", icon: BarChart2 },
 ]
 
-export function Sidebar() {
+export function Sidebar({ user }: Props) {
   const pathname = usePathname()
 
   return (
@@ -46,8 +57,34 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
-      <div className="px-6 py-4 border-t border-border text-xs text-muted-foreground">
-        Dados: brapi.dev
+
+      <div className="px-3 py-3 border-t border-border space-y-1">
+        <div className="flex items-center gap-2 px-3 py-2">
+          {user.image ? (
+            <Image
+              src={user.image}
+              alt={user.name ?? ""}
+              width={24}
+              height={24}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+              {user.name?.[0]?.toUpperCase() ?? "?"}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-xs font-medium truncate">{user.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex w-full items-center gap-2 px-3 py-2 rounded-md text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <LogOut size={14} />
+          Sair
+        </button>
       </div>
     </aside>
   )
