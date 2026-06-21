@@ -143,7 +143,9 @@ export function ScreenerChart({ selectedTickers }: Props) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       // Ordena do maior retorno para o menor no tooltip para facilitar leitura
-      const sortedPayload = [...payload].sort((a: any, b: any) => b.value - a.value)
+      const sortedPayload = [...payload]
+        .filter((p: any) => !String(p.dataKey).startsWith("__"))
+        .sort((a: any, b: any) => b.value - a.value)
       
       return (
         <div className="rounded-xl border border-border bg-card p-3 shadow-lg text-xs space-y-1.5">
