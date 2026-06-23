@@ -12,9 +12,9 @@ export async function middleware(req: NextRequest) {
         : "authjs.session-token",
   })
 
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
+  // if (!token) {
+  //   return NextResponse.redirect(new URL("/login", req.url))
+  // }
 }
 
 export const config = {

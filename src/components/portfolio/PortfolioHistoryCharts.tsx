@@ -18,8 +18,10 @@ import { TrendingUp, TrendingDown, DollarSign, Calendar, Landmark } from "lucide
 
 interface HistoryPoint {
   label: string
+  dateRange?: string
   patrimonio: number
   aporte: number
+  saida: number
   dividendos: number
 }
 
@@ -58,16 +60,24 @@ export function PortfolioHistoryCharts() {
 
   // Formatação de valores para os eixos e tooltips
   const formatYAxis = (tick: number) => {
-    if (tick >= 1000000) return `R$ ${(tick / 1000000).toFixed(1)}M`
-    if (tick >= 1000) return `R$ ${(tick / 1000).toFixed(0)}k`
-    return `R$ ${tick}`
+    const isNegative = tick < 0
+    const absTick = Math.abs(tick)
+    let formatted = ""
+    if (absTick >= 1000000) formatted = `${(absTick / 1000000).toFixed(1)}M`
+    else if (absTick >= 1000) formatted = `${(absTick / 1000).toFixed(0)}k`
+    else formatted = `${absTick}`
+    return isNegative ? `-R$ ${formatted}` : `R$ ${formatted}`
   }
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0]?.payload
+      const dateRangeText = dataPoint?.dateRange ? ` (${dataPoint.dateRange})` : ""
       return (
         <div className="rounded-xl border border-border bg-card p-3 shadow-lg text-xs space-y-1.5">
-          <p className="font-semibold border-b border-border pb-1 mb-1 text-foreground">{label}</p>
+          <p className="font-semibold border-b border-border pb-1 mb-1 text-foreground">
+            {label}{dateRangeText}
+          </p>
           {payload.map((p: any) => (
             <div key={p.name} className="flex items-center justify-between gap-6">
               <span className="flex items-center gap-1.5" style={{ color: p.color }}>
@@ -174,13 +184,21 @@ export function PortfolioHistoryCharts() {
       {data.length > 0 ? (
         <div className="w-full text-xs">
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="label" stroke="currentColor" className="text-muted-foreground opacity-60" />
               <YAxis
                 tickFormatter={formatYAxis}
                 stroke="currentColor"
                 className="text-muted-foreground opacity-60"
+                domain={[
+                  (dataMin: number) => {
+                    if (dataMin >= 0) return 0;
+                    if (dataMin > -100) return -100;
+                    return Math.floor(dataMin / 500) * 500;
+                  },
+                  'auto'
+                ]}
               />
               <ReChartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
               <Legend verticalAlign="top" height={36} iconSize={8} iconType="circle" />
@@ -192,6 +210,15 @@ export function PortfolioHistoryCharts() {
                 barSize={16}
                 fill="#3b82f6"
                 radius={[2, 2, 0, 0]}
+              />
+
+              {/* Barras de Saídas/Vendas */}
+              <Bar
+                name="Vendas no Período"
+                dataKey="saida"
+                barSize={16}
+                fill="#ef4444"
+                radius={[0, 0, 2, 2]}
               />
 
               {/* Barras de Dividendos */}

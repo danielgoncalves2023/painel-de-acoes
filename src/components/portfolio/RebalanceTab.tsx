@@ -145,33 +145,66 @@ export function RebalanceTab() {
       return
     }
 
-    const novoPatrimonioTotal = totalValue + aporteValor
+    // Inicializamos o estado da simulação para cada posição
+    const simulacaoPosicoes = positions.map(p => ({
+      ticker: p.ticker,
+      currentPrice: p.currentPrice,
+      currentValue: p.currentValue,
+      targetPct: targets[p.ticker] || 0,
+      suggestedQuantity: 0,
+      suggestedAmount: 0,
+    }))
 
-    let updated = positions.map(p => {
-      const targetPct = targets[p.ticker] || 0
-      const valorIdeal = (novoPatrimonioTotal * targetPct) / 100
-      const diferencaValor = valorIdeal - p.currentValue
+    let saldoRestante = aporteValor
+    let totalValueSimulado = totalValue
 
-      let action: "BUY" | "WAIT" | "SELL" = "WAIT"
-      let suggestedAmount = 0
-      let suggestedQuantity = 0
+    // Algoritmo guloso para distribuir o aporte aproximando as posições das metas
+    while (true) {
+      // Filtrar apenas ativos com metas configuradas e preço menor ou igual ao saldo restante
+      const ativosElegiveis = simulacaoPosicoes.filter(p => 
+        p.targetPct > 0 && 
+        p.currentPrice > 0 && 
+        p.currentPrice <= saldoRestante
+      )
 
-      // Apenas indicamos COMPRA na simulação de aporte para rebalanceamento passivo
-      if (diferencaValor > 0 && p.currentPrice > 0) {
-        action = "BUY"
-        suggestedQuantity = Math.floor(diferencaValor / p.currentPrice)
-        suggestedAmount = suggestedQuantity * p.currentPrice
-        
-        if (suggestedQuantity <= 0) {
-          action = "WAIT"
+      if (ativosElegiveis.length === 0) {
+        break // Nenhum ativo elegível pode ser comprado com o saldo restante
+      }
+
+      // Encontrar o ativo elegível que está mais distante (abaixo) de sua meta ideal
+      // Desvio = Meta(%) - (ValorSimulado / TotalValueSimulado) * 100
+      let melhorAtivo = ativosElegiveis[0]
+      let maiorDesvio = -Infinity
+
+      for (const ativo of ativosElegiveis) {
+        const valorSimulado = ativo.currentValue + (ativo.suggestedQuantity * ativo.currentPrice)
+        const alocacaoAtualPct = (valorSimulado / totalValueSimulado) * 100
+        const desvio = ativo.targetPct - alocacaoAtualPct
+
+        if (desvio > maiorDesvio) {
+          maiorDesvio = desvio
+          melhorAtivo = ativo
         }
       }
 
+      // Realiza a compra simulada de 1 unidade do ativo selecionado
+      melhorAtivo.suggestedQuantity += 1
+      melhorAtivo.suggestedAmount = melhorAtivo.suggestedQuantity * melhorAtivo.currentPrice
+      saldoRestante -= melhorAtivo.currentPrice
+      totalValueSimulado += melhorAtivo.currentPrice
+    }
+
+    // Atualiza as posições com os resultados da simulação
+    const updated = positions.map(p => {
+      const sim = simulacaoPosicoes.find(s => s.ticker === p.ticker)
+      const quantity = sim ? sim.suggestedQuantity : 0
+      const amount = sim ? sim.suggestedAmount : 0
+      
       return {
         ...p,
-        suggestedAction: action,
-        suggestedAmount,
-        suggestedQuantity
+        suggestedAction: quantity > 0 ? ("BUY" as const) : ("WAIT" as const),
+        suggestedQuantity: quantity,
+        suggestedAmount: amount,
       }
     })
 

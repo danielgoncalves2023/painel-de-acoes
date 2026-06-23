@@ -56,11 +56,14 @@ export async function GET(request: Request) {
         startDate.setDate(endDate.getDate() - 6)
         startDate.setHours(0, 0, 0, 0)
 
+        const dateRange = `${startDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} - ${endDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
+
         points.push({
           label: `Semana ${12 - i}`,
           startDate,
           endDate,
-        })
+          dateRange,
+        } as any)
       }
     } else if (period === "year") {
       // Últimos 5 anos
@@ -73,7 +76,8 @@ export async function GET(request: Request) {
           label: String(year),
           startDate,
           endDate,
-        })
+          dateRange: String(year),
+        } as any)
       }
     } else {
       // Padrão: últimos 12 meses
@@ -83,11 +87,13 @@ export async function GET(request: Request) {
         const endDate = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
 
         const label = endDate.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
+        const dateRange = endDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
         points.push({
           label,
           startDate,
           endDate,
-        })
+          dateRange,
+        } as any)
       }
     }
 
@@ -151,6 +157,7 @@ export async function GET(request: Request) {
     const history = points.map((p) => {
       let totalPatrimonio = 0
       let totalAportePeriodo = 0
+      let totalSaidaPeriodo = 0
       let totalDividendosPeriodo = 0
 
       for (const ticker of tickers) {
@@ -158,11 +165,11 @@ export async function GET(request: Request) {
         const txsInPeriod = transactions.filter(
           (t) => t.ticker === ticker && new Date(t.date) >= p.startDate && new Date(t.date) <= p.endDate
         )
-        const aporteAsset = txsInPeriod.reduce((acc, t) => {
-          const value = t.quantity * t.price
-          return t.type === "BUY" ? acc + value : acc - value
-        }, 0)
-        totalAportePeriodo += aporteAsset
+        const buyAsset = txsInPeriod.filter((t) => t.type === "BUY").reduce((acc, t) => acc + t.quantity * t.price, 0)
+        const sellAsset = txsInPeriod.filter((t) => t.type === "SELL").reduce((acc, t) => acc + t.quantity * t.price, 0)
+
+        totalAportePeriodo += buyAsset
+        totalSaidaPeriodo += sellAsset
 
         // Quantidade total acumulada até o final deste período
         const txsUntilEnd = transactions.filter(
@@ -218,19 +225,21 @@ export async function GET(request: Request) {
 
       return {
         label: p.label,
+        dateRange: (p as any).dateRange,
         patrimonio: Math.round(totalPatrimonio * 100) / 100,
         aporte: Math.round(totalAportePeriodo * 100) / 100,
+        saida: Math.round(-totalSaidaPeriodo * 100) / 100,
         dividendos: Math.round(totalDividendosPeriodo * 100) / 100,
       }
     })
 
     // 5. Gera os KPIs agregados de todo o período coberto pelo gráfico
-    const totalAportesNoGrafico = history.reduce((sum, h) => sum + h.aporte, 0)
+    const totalAportesNoGrafico = history.reduce((sum, h) => sum + h.aporte + (h as any).saida, 0)
     const totalDividendosNoGrafico = history.reduce((sum, h) => sum + h.dividendos, 0)
     
     // Patrimônio final menos patrimônio inicial ajustado pelos aportes
     const finalPatr = history[history.length - 1].patrimonio
-    const initialPatr = history[0].patrimonio - history[0].aporte
+    const initialPatr = history[0].patrimonio - history[0].aporte - (history[0] as any).saida
     const rentabilidade = finalPatr + totalDividendosNoGrafico - (initialPatr + totalAportesNoGrafico)
 
     return NextResponse.json({
