@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calcPositions } from "@/lib/calculations"
 import YahooFinance from "yahoo-finance2"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -34,11 +35,14 @@ function getEstimatedDataCom(exDateStr: string): string {
 }
 
 export async function GET() {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   try {
-    // 1. Obter ações da carteira e favorita
+    // 1. Obter ações da carteira e favorita (filtradas pelo userId)
     const [transactions, watchlist] = await Promise.all([
-      prisma.transaction.findMany(),
-      prisma.watchlist.findMany()
+      prisma.transaction.findMany({ where: { userId } }),
+      prisma.watchlist.findMany({ where: { userId } })
     ])
 
     const watchlistTickers = watchlist.map(w => w.ticker)

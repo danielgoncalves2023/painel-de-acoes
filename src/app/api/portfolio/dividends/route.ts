@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
 import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
+import { getQuotes } from "@/lib/brapi"
+import { calcPositions, calcWeightedDY } from "@/lib/calculations"
 
 export const dynamic = "force-dynamic"
 
@@ -32,7 +34,16 @@ export async function GET() {
     })
 
     if (transactions.length === 0) {
-      return NextResponse.json({ dividends: [], summary: { totalPaid: 0, totalProvisioned: 0 } })
+      return NextResponse.json({ 
+        dividends: [], 
+        summary: { 
+          totalPaid: 0, 
+          totalProvisioned: 0,
+          annualForecast: 0,
+          monthlyForecast: 0,
+          weightedDY: 0
+        } 
+      })
     }
 
     const tickers = [...new Set(transactions.map((t) => t.ticker))]
@@ -130,11 +141,69 @@ export async function GET() {
       .filter((d) => d.status === "Provisionado")
       .reduce((sum, d) => sum + d.total, 0)
 
+    // Cálculo da previsão de dividendos com base no histórico real
+    // Para cada ativo: soma dividendos pagos nos últimos 12 meses × quantidade atual
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+    // Calcula quantidade atual em custódia por ticker (baseado em todas as transações)
+    const typedTransactions = transactions.map(t => ({
+      ...t,
+      type: t.type as "BUY" | "SELL",
+      date: t.date instanceof Date ? t.date.toISOString() : String(t.date),
+      createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : String(t.createdAt)
+    }))
+
+    const currentQtyMap = new Map<string, number>()
+    for (const ticker of tickers) {
+      const qty = typedTransactions
+        .filter(t => t.ticker === ticker)
+        .reduce((sum, t) => t.type === "BUY" ? sum + t.quantity : sum - t.quantity, 0)
+      if (qty > 0) currentQtyMap.set(ticker, qty)
+    }
+
+    // Calcula o total anual previsto somando: dividendos/ação (últimos 12m) × quantidade em custódia
+    let annualForecast = 0
+
+    for (const [ticker, qty] of currentQtyMap) {
+      const fund = fundMap.get(ticker)
+      let divHistory: { date: string; amount: number }[] = []
+
+      if (fund?.historyDivRaw) {
+        try {
+          divHistory = JSON.parse(fund.historyDivRaw)
+        } catch { divHistory = [] }
+      }
+
+      // Soma os dividendos pagos por ação nos últimos 12 meses
+      const annualDivPerShare = divHistory
+        .filter(d => new Date(d.date) >= oneYearAgo)
+        .reduce((sum, d) => sum + d.amount, 0)
+
+      annualForecast += annualDivPerShare * qty
+    }
+
+    const monthlyForecast = annualForecast / 12
+
+    // DY médio ponderado (informativo) — usa cotações da BRAPI
+    let weightedDY = 0
+    try {
+      const quotes = await getQuotes(tickers)
+      const positions = calcPositions(typedTransactions, quotes)
+      const activePositions = positions.filter(p => p.quantity > 0)
+      weightedDY = calcWeightedDY(activePositions)
+    } catch (err) {
+      console.error("Erro ao buscar cotações para DY médio:", err)
+    }
+
     return NextResponse.json({
       dividends,
       summary: {
         totalPaid: Math.round(totalPaid * 100) / 100,
         totalProvisioned: Math.round(totalProvisioned * 100) / 100,
+        annualForecast: Math.round(annualForecast * 100) / 100,
+        monthlyForecast: Math.round(monthlyForecast * 100) / 100,
+        weightedDY: Math.round(weightedDY * 100) / 100,
       },
     })
   } catch (err: any) {
@@ -142,3 +211,4 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch portfolio dividends", details: err.message }, { status: 500 })
   }
 }
+

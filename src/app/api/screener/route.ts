@@ -3,6 +3,7 @@ import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
 import { cacheGet, cacheSet } from "@/lib/cache"
 import { calcDyFromHistory } from "@/lib/calculations"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,9 @@ const yf = new YahooFinance({
 const TTL_QUOTES = 5 * 60 * 1000 // cotações em tempo real: 5 min
 
 export async function GET() {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   try {
     // 1. Busca todos os fundamentos salvos localmente
     const fundamentals = await (prisma as any).stockFundamental.findMany()

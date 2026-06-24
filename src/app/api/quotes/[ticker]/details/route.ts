@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cacheGet, cacheSet } from "@/lib/cache"
 import { getQuoteWithModules } from "@/lib/brapi"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   const { ticker } = await params
   const cacheKey = `details:${ticker.toUpperCase()}`
 

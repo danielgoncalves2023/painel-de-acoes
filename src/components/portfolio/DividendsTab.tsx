@@ -5,7 +5,7 @@ import { formatCurrency } from "@/lib/calculations"
 import { formatDateUTC } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Landmark, CalendarRange, Search } from "lucide-react"
+import { Landmark, CalendarRange, Search, TrendingUp } from "lucide-react"
 
 interface DividendItem {
   ticker: string
@@ -20,6 +20,9 @@ interface DividendItem {
 interface DividendsSummary {
   totalPaid: number
   totalProvisioned: number
+  annualForecast?: number
+  monthlyForecast?: number
+  weightedDY?: number
 }
 
 export function DividendsTab() {
@@ -81,9 +84,8 @@ export function DividendsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Resumo do Topo */}
       {summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-xl border border-border bg-card p-5 space-y-1">
             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Landmark size={14} className="text-green-500" /> Total Recebido (Histórico)
@@ -95,6 +97,18 @@ export function DividendsTab() {
               <CalendarRange size={14} className="text-yellow-500" /> Provisionado (A Receber Futuro)
             </span>
             <div className="text-2xl font-bold text-yellow-500">{formatCurrency(summary.totalProvisioned)}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 space-y-1">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <TrendingUp size={14} className="text-primary" /> Previsão Anual (DY {summary.weightedDY?.toFixed(1)}%)
+            </span>
+            <div className="text-2xl font-bold text-primary">{formatCurrency(summary.annualForecast ?? 0)}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 space-y-1">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <CalendarRange size={14} className="text-primary" /> Média Mensal (Prevista)
+            </span>
+            <div className="text-2xl font-bold text-primary">{formatCurrency(summary.monthlyForecast ?? 0)}</div>
           </div>
         </div>
       )}

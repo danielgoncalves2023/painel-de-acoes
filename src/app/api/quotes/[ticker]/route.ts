@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cacheGet, cacheSet } from "@/lib/cache"
 import { getQuote, getQuotes } from "@/lib/brapi"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ ticker: string }> }
 ) {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   const { ticker } = await params
   const tickers = ticker.split(",").map((t) => t.toUpperCase())
   const cacheKey = `quote:${tickers.join(",")}`

@@ -3,6 +3,7 @@ import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
 import { cacheGet, cacheSet } from "@/lib/cache"
 import { TICKERS } from "@/lib/tickers"
+import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
 
@@ -20,6 +21,9 @@ interface SyncProgress {
 }
 
 export async function GET() {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
   const progress = cacheGet<SyncProgress>("sync:progress") || {
     status: "idle",
     current: 0,
@@ -30,6 +34,10 @@ export async function GET() {
 }
 
 export async function POST() {
+  const userId = await getAuthUserId()
+  if (!userId) return unauthorized()
+
+
   const progress = cacheGet<SyncProgress>("sync:progress")
   if (progress && progress.status === "running") {
     return NextResponse.json({ error: "Sincronização já está em andamento" }, { status: 400 })

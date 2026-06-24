@@ -2,7 +2,8 @@ import { auth } from "@/auth"
 import { NextResponse } from "next/server"
 
 export async function getAuthUserId(): Promise<string | null> {
-  return "cmqo165s700008ns1qtdzzc0k"
+  const session = await auth()
+  return session?.user?.id ?? null
 }
 
 export function unauthorized() {
