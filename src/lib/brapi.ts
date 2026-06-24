@@ -17,19 +17,32 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export async function getQuote(ticker: string): Promise<Quote> {
-  const [base, yfStats] = await Promise.allSettled([
+  const threeYearsAgo = new Date()
+  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3)
+
+  const [base, yfStats, yfDivs] = await Promise.allSettled([
     get<{ results: Quote[] }>(`/quote/${ticker}`),
-    yahooFinance.quoteSummary(`${ticker}.SA`, { modules: ["summaryDetail"] }).catch(() => null)
+    yahooFinance.quoteSummary(`${ticker}.SA`, { modules: ["summaryDetail"] }).catch(() => null),
+    yahooFinance.chart(`${ticker}.SA`, { period1: threeYearsAgo, interval: "1mo" }).catch(() => null)
   ])
 
   const quote = base.status === "fulfilled" ? base.value.results[0] : ({} as Quote)
   const stats = yfStats.status === "fulfilled" ? yfStats.value?.summaryDetail : null
+  const divs = yfDivs.status === "fulfilled" && yfDivs.value?.events?.dividends ? yfDivs.value.events.dividends : []
+
+  const historyDividend = (divs as any[]).map((d: any) => ({
+    date: typeof d.date === "object" ? d.date.toISOString() : new Date(d.date).toISOString(),
+    amount: d.amount ?? 0
+  }))
+
+  const currentPrice = (quote as Quote).regularMarketPrice
+  const dyFromHistory = calcDyFromHistory(historyDividend, currentPrice)
 
   return {
     ...quote,
-    dividendYield: stats?.dividendYield != null
+    dividendYield: dyFromHistory ?? (stats?.dividendYield != null
       ? stats.dividendYield * 100
-      : quote.dividendYield,
+      : quote.dividendYield),
   }
 }
 
