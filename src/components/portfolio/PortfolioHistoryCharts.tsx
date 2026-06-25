@@ -90,19 +90,54 @@ export function PortfolioHistoryCharts() {
 
   // Monta série de rentabilidade % da carteira normalizada ao início do período
   const rentabilidadeData = (() => {
-    const firstNonZero = data.find((d) => d.patrimonio > 0)?.patrimonio ?? 0
+    const firstIndex = data.findIndex((d) => d.patrimonio > 0)
+    const baseline = firstIndex !== -1 ? data[firstIndex].patrimonio : 0
     const bMap = new Map(benchmark.map((b) => [b.label, b]))
-    return data.map((d) => {
-      const portfolioPct = firstNonZero > 0
-        ? Math.round(((d.patrimonio - firstNonZero) / firstNonZero) * 10000) / 100
+
+    // Encontra os valores de benchmark na data do primeiro aporte (firstIndex)
+    const baseLabel = firstIndex !== -1 ? data[firstIndex].label : ""
+    const baseBm = bMap.get(baseLabel)
+    const ibovBase = baseBm?.ibov ?? null
+    const cdiBase = baseBm?.cdi ?? null
+
+    const recalculateBenchmark = (currentPct: number | null, basePct: number | null) => {
+      if (currentPct == null) return null
+      if (basePct == null) return currentPct // Fallback caso não ache o ponto de base
+      return Math.round(((currentPct - basePct) / (1 + basePct / 100)) * 100) / 100
+    }
+
+    return data.map((d, index) => {
+      if (firstIndex === -1 || index < firstIndex) {
+        return {
+          label: d.label,
+          dateRange: d.dateRange,
+          carteira: null,
+          ibov: null,
+          cdi: null,
+        }
+      }
+
+      // Calcula os aportes acumulados desde o dia seguinte ao primeiro mês com ativos
+      let cumAportes = 0
+      for (let j = firstIndex + 1; j <= index; j++) {
+        cumAportes += data[j].aporte + data[j].saida
+      }
+
+      const adjPatr = d.patrimonio - cumAportes
+      const portfolioPct = baseline > 0
+        ? Math.round(((adjPatr - baseline) / baseline) * 10000) / 100
         : null
+
       const bm = bMap.get(d.label)
+      const ibovNormalized = recalculateBenchmark(bm?.ibov ?? null, ibovBase)
+      const cdiNormalized = recalculateBenchmark(bm?.cdi ?? null, cdiBase)
+
       return {
         label: d.label,
         dateRange: d.dateRange,
         carteira: portfolioPct,
-        ibov: bm?.ibov ?? null,
-        cdi: bm?.cdi ?? null,
+        ibov: ibovNormalized,
+        cdi: cdiNormalized,
       }
     })
   })()
@@ -263,7 +298,7 @@ export function PortfolioHistoryCharts() {
                   <YAxis tickFormatter={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`} stroke="currentColor" className="text-muted-foreground opacity-60" />
                   <ReChartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
                   <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 4" />
-                  <Line name="Carteira" type="monotone" dataKey="carteira" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1.5, fill: "#1e1e24" }} activeDot={{ r: 5 }} connectNulls />
+                  <Line name="Carteira" type="monotone" dataKey="carteira" stroke="var(--primary)" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 1.5, fill: "var(--background)" }} activeDot={{ r: 5 }} connectNulls />
                   <Line name="IBOVESPA" type="monotone" dataKey="ibov" stroke="#fb923c" strokeWidth={2} dot={false} strokeDasharray="5 3" connectNulls />
                   <Line name="CDI" type="monotone" dataKey="cdi" stroke="#22d3ee" strokeWidth={1.5} dot={false} strokeDasharray="3 3" connectNulls />
                 </ComposedChart>

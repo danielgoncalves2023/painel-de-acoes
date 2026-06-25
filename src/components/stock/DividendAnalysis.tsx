@@ -8,8 +8,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -42,6 +43,17 @@ export function DividendAnalysis({ quote }: Props) {
   const yearlyData = Object.entries(byYear)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([year, total]) => ({ year, total: Math.round(total * 100) / 100 }))
+
+  // Calcula a média acumulada até cada ano para traçar a evolução da média
+  let sumSoFar = 0
+  const yearlyDataWithAvg = yearlyData.map((entry, index) => {
+    sumSoFar += entry.total
+    const avg = sumSoFar / (index + 1)
+    return {
+      ...entry,
+      average: Math.round(avg * 100) / 100,
+    }
+  })
 
   // Detecta tendência: último ano vs penúltimo
   const lastTwo = yearlyData.slice(-2)
@@ -116,36 +128,50 @@ export function DividendAnalysis({ quote }: Props) {
             </span>
           </div>
           <ResponsiveContainer width="100%" height={100}>
-            <BarChart data={yearlyData} margin={{ top: 4, right: 0, left: -30, bottom: 0 }} barSize={20}>
+            <ComposedChart data={yearlyDataWithAvg} margin={{ top: 12, right: 0, left: -30, bottom: 0 }} barSize={20}>
               <XAxis dataKey="year" tick={{ fontSize: 10 }} stroke="currentColor" className="opacity-50" />
               <YAxis tick={{ fontSize: 9 }} stroke="currentColor" className="opacity-40" tickFormatter={(v) => `R$${v.toFixed(2)}`} />
               <Tooltip
                 cursor={{ fill: "rgba(255,255,255,0.04)" }}
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null
+                  const total = payload.find(p => p.dataKey === "total")?.value
+                  const average = payload.find(p => p.dataKey === "average")?.value
                   return (
                     <div style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, padding: "6px 10px", fontSize: 11, color: "hsl(var(--foreground))" }}>
                       <p style={{ fontWeight: 600, marginBottom: 2 }}>{label}</p>
-                      <p>Total pago: R$ {Number(payload[0].value).toFixed(2)} / ação</p>
+                      <p>Total pago: R$ {Number(total).toFixed(2)} / ação</p>
+                      {average != null && (
+                        <p style={{ color: "#eab308" }}>Média acumulada: R$ {Number(average).toFixed(2)} / ação</p>
+                      )}
                     </div>
                   )
                 }}
               />
+              <Line
+                type="monotone"
+                dataKey="average"
+                stroke="#eab308"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "hsl(var(--card))", strokeWidth: 1.5 }}
+                activeDot={{ r: 5 }}
+                name="Média Acumulada"
+              />
               <Bar dataKey="total" radius={[3, 3, 0, 0]}>
-                {yearlyData.map((entry, i) => {
-                  const isLast = i === yearlyData.length - 1
-                  const isPrev = i === yearlyData.length - 2
-                  const isGrowing = isLast && yearlyData.length >= 2 && entry.total >= yearlyData[i - 1]?.total
+                {yearlyDataWithAvg.map((entry, i) => {
+                  const isLast = i === yearlyDataWithAvg.length - 1
+                  const isPrev = i === yearlyDataWithAvg.length - 2
+                  const isGrowing = isLast && yearlyDataWithAvg.length >= 2 && entry.total >= yearlyDataWithAvg[i - 1]?.total
                   return (
                     <Cell
                       key={entry.year}
-                      fill={isLast ? (isGrowing ? "#10b981" : "#ef4444") : isPrev ? "hsl(var(--primary))" : "#6b7280"}
-                      opacity={isLast || isPrev ? 1 : 0.5}
+                      fill={isLast ? (isGrowing ? "#10b981" : "#ef4444") : isPrev ? "var(--primary)" : "#9ca3af"}
+                      opacity={isLast || isPrev ? 1 : 0.7}
                     />
                   )
                 })}
               </Bar>
-            </BarChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
