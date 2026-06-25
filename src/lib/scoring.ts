@@ -112,7 +112,19 @@ export function calcOpportunityScore(input: ScoringInput): ScoreBreakdown {
   }
   total += gmPts
 
-  // Clamp
+  // 7. Margem de Bazin (0-1 pt) — complementa Graham para perfil de dividendos
+  const bm = input.bazinMargin
+  let bmPts = 0
+  if (bm != null) {
+    if (bm >= 25) bmPts = 1
+    else if (bm >= 10) bmPts = 0.5
+    criteria.push({ name: "Margem Bazin", pts: bmPts, maxPts: 1, detail: bm > 0 ? `+${bm.toFixed(0)}%` : `${bm.toFixed(0)}%` })
+  } else {
+    criteria.push({ name: "Margem Bazin", pts: 0, maxPts: 1, detail: "—" })
+  }
+  total += bmPts
+
+  // Clamp (máx 11 pts brutos → normalizado em 10)
   total = Math.min(10, Math.max(0, total))
 
   // Contagem de critérios sem dados

@@ -3,6 +3,7 @@ import YahooFinance from "yahoo-finance2"
 import { prisma } from "@/lib/prisma"
 import { cacheGet, cacheSet } from "@/lib/cache"
 import { calcDyFromHistory } from "@/lib/calculations"
+import { calcGrahamBazin } from "@/lib/valuation"
 import { getAuthUserId, unauthorized } from "@/lib/auth-utils"
 
 export const dynamic = "force-dynamic"
@@ -59,6 +60,7 @@ export async function GET() {
         historyDividend = []
       }
 
+      // DY: prioriza histórico real; fallback para Yahoo apenas se histórico ausente
       const dyCalculated = calcDyFromHistory(historyDividend, currentPrice)
       const dyFallback = q
         ? ((q.trailingAnnualDividendYield != null && q.trailingAnnualDividendYield > 0)
@@ -69,16 +71,10 @@ export async function GET() {
 
       const pl = q?.trailingPE || 0
       const pvp = q?.priceToBook || 0
-      const lpa = f.lpa
-      const vpa = f.vpa
 
-      let grahamValue = 0
-      if (lpa > 0 && vpa > 0) grahamValue = Math.sqrt(22.5 * lpa * vpa)
-
-      const proventosAnuais = (dy / 100) * currentPrice
-      const bazinValue = proventosAnuais / 0.08
-      const grahamMargin = grahamValue > 0 ? ((grahamValue - currentPrice) / grahamValue) * 100 : -100
-      const bazinMargin = bazinValue > 0 ? ((bazinValue - currentPrice) / bazinValue) * 100 : -100
+      // Graham e Bazin via fonte única de verdade (mesma lógica da tela de detalhes)
+      const { grahamFairPrice, grahamMargin, bazinCeilingPrice, bazinMargin } =
+        calcGrahamBazin(f.lpa, f.vpa, historyDividend, currentPrice)
 
       return {
         ticker: f.ticker,
@@ -87,15 +83,16 @@ export async function GET() {
         dy,
         pl,
         pvp,
-        lpa,
-        vpa,
+        lpa: f.lpa,
+        vpa: f.vpa,
         roe: f.roe,
         margemLiquida: f.margemLiquida,
         payout: f.payout,
-        grahamValue,
-        grahamMargin,
-        bazinValue,
-        bazinMargin,
+        grahamValue: grahamFairPrice ?? 0,
+        grahamMargin: grahamMargin ?? -100,
+        bazinValue: bazinCeilingPrice ?? 0,
+        bazinMargin: bazinMargin ?? -100,
+        updatedAt: f.updatedAt,
       }
     })
 

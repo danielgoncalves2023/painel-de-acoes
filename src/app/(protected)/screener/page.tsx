@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Compass, HelpCircle, Flame, DollarSign, ShieldAlert, Eye, RefreshCw } from "lucide-react"
+import { Compass, HelpCircle, Flame, DollarSign, ShieldAlert, Eye, RefreshCw, Clock } from "lucide-react"
 import Link from "next/link"
 import { calcOpportunityScore } from "@/lib/scoring"
 import { ScreenerChart } from "@/components/screener/ScreenerChart"
@@ -30,6 +30,7 @@ interface ScreenerStock {
   grahamMargin: number
   bazinValue: number
   bazinMargin: number
+  updatedAt: string | null
 }
 
 interface SyncProgress {
@@ -228,15 +229,34 @@ export default function ScreenerPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Compass className="text-primary" /> Radar B3
           </h1>
-          <Button
-            onClick={handleStartSync}
-            disabled={syncProgress?.status === "running"}
-            className="text-xs gap-1.5"
-            variant="secondary"
-          >
-            <RefreshCw size={12} className={syncProgress?.status === "running" ? "animate-spin" : ""} />
-            Sincronizar Fundamentos
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {stocks.length > 0 && (() => {
+              const oldest = stocks.reduce<string | null>((min, s) => {
+                if (!s.updatedAt) return min
+                return !min || s.updatedAt < min ? s.updatedAt : min
+              }, null)
+              if (!oldest) return null
+              const date = new Date(oldest)
+              const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
+              const label = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+              return (
+                <span className={`flex items-center gap-1 text-xs ${diffDays > 7 ? "text-yellow-500" : "text-muted-foreground"}`}>
+                  <Clock size={11} />
+                  Fundamentos sincronizados em {label}
+                  {diffDays > 7 && <span className="font-semibold"> — desatualizados ({diffDays}d)</span>}
+                </span>
+              )
+            })()}
+            <Button
+              onClick={handleStartSync}
+              disabled={syncProgress?.status === "running"}
+              className="text-xs gap-1.5"
+              variant="secondary"
+            >
+              <RefreshCw size={12} className={syncProgress?.status === "running" ? "animate-spin" : ""} />
+              Sincronizar Fundamentos
+            </Button>
+          </div>
         </div>
 
         {/* Banner de Sincronização em Progresso */}

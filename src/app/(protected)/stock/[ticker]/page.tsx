@@ -11,7 +11,7 @@ import { AddTransactionDialog } from "@/components/portfolio/AddTransactionDialo
 import { calcPositions, formatCurrency, formatPercent } from "@/lib/calculations"
 import { calcOpportunityScore } from "@/lib/scoring"
 import { DividendAnalysis } from "@/components/stock/DividendAnalysis"
-import { TrendingUp, TrendingDown, ArrowLeft, Star } from "lucide-react"
+import { TrendingUp, TrendingDown, ArrowLeft, Star, Bell } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -40,7 +40,19 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
       
       // Preços ao vivo do quoteBase + módulos (indicadores/fundamentos) do details
       const base = Array.isArray(quoteBase) ? quoteBase[0] : {}
-      const merged: QuoteWithModules = { ...details, ...base, summaryProfile: details.summaryProfile, defaultKeyStatistics: details.defaultKeyStatistics, historyDividend: details.historyDividend, dividendYield: details.dividendYield }
+      const merged: QuoteWithModules = {
+        ...details,
+        ...base,
+        // Campos fundamentais: preserva details (tem fallback Yahoo/banco) sobre base (BRAPI pode retornar null para units)
+        summaryProfile: details.summaryProfile,
+        defaultKeyStatistics: details.defaultKeyStatistics,
+        historyDividend: details.historyDividend,
+        dividendYield: details.dividendYield,
+        earningsPerShare: details.earningsPerShare ?? (base as any).earningsPerShare,
+        priceEarnings: details.priceEarnings ?? (base as any).priceEarnings,
+        marketCap: details.marketCap ?? (base as any).marketCap,
+        exDividendDate: details.exDividendDate,
+      }
       setQuote(merged)
 
       const tickerTxs = transactions.filter((t) => t.ticker === upperTicker)
@@ -111,7 +123,13 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
               roe: quote.defaultKeyStatistics?.returnOnEquity,
               margemLiquida: quote.defaultKeyStatistics?.profitMargins,
               grahamMargin: valuation.grahamMargin ?? undefined,
+              bazinMargin: valuation.bazinMargin ?? undefined,
             })
+
+            // Data ex-dividendo e urgência
+            const exDate = quote.exDividendDate ? new Date(quote.exDividendDate) : null
+            const daysUntilEx = exDate ? Math.ceil((exDate.getTime() - Date.now()) / 86_400_000) : null
+            const exDateLabel = exDate ? exDate.toLocaleDateString("pt-BR") : null
             return (
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
@@ -142,10 +160,24 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                       </div>
                     )}
                   </div>
-                  <div className="text-muted-foreground text-sm mt-0.5">
+                  <div className="text-muted-foreground text-sm mt-0.5 flex items-center flex-wrap gap-2">
                     {quote.longName ?? quote.shortName}
                     {quote.summaryProfile?.sector && (
-                      <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">{quote.summaryProfile.sector}</span>
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded">{quote.summaryProfile.sector}</span>
+                    )}
+                    {exDateLabel && daysUntilEx != null && daysUntilEx >= 0 && (
+                      <span className={cn(
+                        "inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border",
+                        daysUntilEx <= 3
+                          ? "bg-red-500/10 border-red-500/40 text-red-400"
+                          : daysUntilEx <= 7
+                          ? "bg-yellow-500/10 border-yellow-500/40 text-yellow-400"
+                          : "bg-blue-500/10 border-blue-500/40 text-blue-400"
+                      )}>
+                        <Bell size={10} />
+                        Data Ex: {exDateLabel}
+                        {daysUntilEx <= 7 && <span>({daysUntilEx === 0 ? "hoje!" : `${daysUntilEx}d`})</span>}
+                      </span>
                     )}
                   </div>
                 </div>

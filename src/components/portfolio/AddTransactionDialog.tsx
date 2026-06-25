@@ -31,6 +31,7 @@ export function AddTransactionDialog({ onSuccess, defaultTicker }: Props) {
   const [note, setNote] = useState("")
   const [suggestions, setSuggestions] = useState<{ stock: string; name: string }[]>([])
   const [showSugg, setShowSugg] = useState(false)
+  const [tickerValidated, setTickerValidated] = useState(!!defaultTicker)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function AddTransactionDialog({ onSuccess, defaultTicker }: Props) {
             <Label>Ativo</Label>
             <Input
               value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              onChange={(e) => { setTicker(e.target.value.toUpperCase()); setTickerValidated(false) }}
               onBlur={() => setTimeout(() => setShowSugg(false), 150)}
               placeholder="PETR4"
               required
@@ -119,7 +120,7 @@ export function AddTransactionDialog({ onSuccess, defaultTicker }: Props) {
                 {suggestions.map((s) => (
                   <li
                     key={s.stock}
-                    onMouseDown={() => { setTicker(s.stock); setShowSugg(false) }}
+                    onMouseDown={() => { setTicker(s.stock); setTickerValidated(true); setShowSugg(false) }}
                     className="px-3 py-2 text-sm cursor-pointer hover:bg-accent flex justify-between"
                   >
                     <span className="font-medium">{s.stock}</span>
@@ -127,6 +128,11 @@ export function AddTransactionDialog({ onSuccess, defaultTicker }: Props) {
                   </li>
                 ))}
               </ul>
+            )}
+            {ticker.length >= 2 && !tickerValidated && !showSugg && (
+              <p className="text-xs text-yellow-500 mt-1">
+                ⚠ Selecione o ativo na lista de sugestões para confirmar o ticker.
+              </p>
             )}
           </div>
 

@@ -60,6 +60,7 @@ export interface QuoteWithModules extends Quote {
     date: string
     amount: number
   }[]
+  exDividendDate?: string | null
 }
 
 export interface PortfolioPosition {

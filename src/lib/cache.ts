@@ -18,3 +18,7 @@ export function cacheGet<T>(key: string): T | null {
 export function cacheSet<T>(key: string, data: T, ttlMs = 5 * 60 * 1000) {
   store.set(key, { data, expiresAt: Date.now() + ttlMs })
 }
+
+export function cacheDelete(key: string) {
+  store.delete(key)
+}

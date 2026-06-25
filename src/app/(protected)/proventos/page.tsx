@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { formatCurrency } from "@/lib/calculations"
-import { Calendar, DollarSign, ArrowUpRight, TrendingUp, HelpCircle, Briefcase, Star } from "lucide-react"
+import { Calendar, DollarSign, ArrowUpRight, TrendingUp, HelpCircle, Briefcase, Star, Bell } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface ProventoEvent {
@@ -257,13 +257,27 @@ export default function ProventosPage() {
                         {formatDisplayDate(e.date)}
                       </td>
                       <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          e.type === "PAGO" 
-                            ? "bg-green-500/10 text-green-500" 
-                            : "bg-amber-500/10 text-amber-500"
-                        }`}>
-                          {e.type === "PAGO" ? "PAGO" : "PREVISTO"}
-                        </span>
+                        {(() => {
+                          if (e.type === "PAGO") {
+                            return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-500/10 text-green-500">PAGO</span>
+                          }
+                          const daysUntil = Math.ceil((new Date(e.date).getTime() - Date.now()) / 86_400_000)
+                          if (daysUntil <= 3) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/30 animate-pulse">
+                                <Bell size={10} /> URGENTE ({daysUntil === 0 ? "hoje" : `${daysUntil}d`})
+                              </span>
+                            )
+                          }
+                          if (daysUntil <= 7) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">
+                                <Bell size={10} /> EM {daysUntil}d
+                              </span>
+                            )
+                          }
+                          return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-500">PREVISTO</span>
+                        })()}
                       </td>
                     </tr>
                   ))}

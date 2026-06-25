@@ -1,6 +1,21 @@
 import { analyzeDividends } from "@/lib/scoring"
 import { QuoteWithModules } from "@/types"
-import { TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, HelpCircle } from "lucide-react"
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts"
 
 interface Props {
   quote: QuoteWithModules
@@ -18,9 +33,25 @@ export function DividendAnalysis({ quote }: Props) {
   const cagrPositive = analysis.cagr3y != null && analysis.cagr3y > 0
   const cagrNegative = analysis.cagr3y != null && analysis.cagr3y < 0
 
+  // Agrupa dividendos por ano para o mini gráfico
+  const byYear: Record<number, number> = {}
+  for (const d of quote.historyDividend ?? []) {
+    const yr = new Date(d.date).getFullYear()
+    byYear[yr] = (byYear[yr] || 0) + d.amount
+  }
+  const yearlyData = Object.entries(byYear)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([year, total]) => ({ year, total: Math.round(total * 100) / 100 }))
+
+  // Detecta tendência: último ano vs penúltimo
+  const lastTwo = yearlyData.slice(-2)
+  const trend = lastTwo.length === 2
+    ? lastTwo[1].total >= lastTwo[0].total ? "up" : "down"
+    : "neutral"
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-xl border border-border bg-card p-5 space-y-5">
+      <div className="flex items-center justify-between">
         <h2 className="font-semibold text-sm">Análise de Dividendos</h2>
         <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${
           analysis.tag === "Aristócrata"
@@ -45,15 +76,21 @@ export function DividendAnalysis({ quote }: Props) {
         </div>
         <div className="bg-muted/40 rounded-lg px-4 py-3">
           <div className="text-xs text-muted-foreground mb-1">Média anual paga</div>
-          <div className="font-semibold">
-            R$ {analysis.avgAnnual.toFixed(2)} / ação
-          </div>
+          <div className="font-semibold">R$ {analysis.avgAnnual.toFixed(2)} / ação</div>
         </div>
         <div className="bg-muted/40 rounded-lg px-4 py-3">
-          <div className="text-xs text-muted-foreground mb-1">Crescimento (CAGR 3a)</div>
-          <div className={`font-semibold flex items-center gap-1 ${
-            cagrPositive ? "text-green-500" : cagrNegative ? "text-red-500" : "text-muted-foreground"
-          }`}>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger className="text-xs text-muted-foreground mb-1 flex items-center gap-1 cursor-help w-fit underline decoration-dashed underline-offset-2 text-left">
+                Crescimento (CAGR 3a) <HelpCircle size={10} />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[280px] text-xs leading-relaxed font-normal">
+                <p><strong>CAGR</strong> (Compound Annual Growth Rate) é a taxa de crescimento anual composta dos dividendos nos últimos 3 anos.</p>
+                <p className="mt-1">Um CAGR positivo e consistente indica que a empresa aumenta os proventos ano a ano — sinal de saúde financeira e compromisso com o acionista. CAGR negativo ou irregular sugere distribuição instável, o que exige atenção antes de depender dessa ação como fonte de renda passiva.</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+          <div className={`font-semibold flex items-center gap-1 ${cagrPositive ? "text-green-500" : cagrNegative ? "text-red-500" : "text-muted-foreground"}`}>
             {cagrPositive ? <TrendingUp size={14} /> : cagrNegative ? <TrendingDown size={14} /> : <Minus size={14} />}
             {analysis.cagr3y != null ? `${analysis.cagr3y > 0 ? "+" : ""}${analysis.cagr3y.toFixed(1)}% a.a.` : "—"}
           </div>
@@ -66,8 +103,55 @@ export function DividendAnalysis({ quote }: Props) {
         </div>
       </div>
 
+      {/* Gráfico de barras por ano */}
+      {yearlyData.length >= 2 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground font-medium">Total pago por ação / ano</span>
+            <span className={`text-xs font-semibold flex items-center gap-1 ${
+              trend === "up" ? "text-green-500" : trend === "down" ? "text-red-500" : "text-muted-foreground"
+            }`}>
+              {trend === "up" ? <TrendingUp size={11} /> : trend === "down" ? <TrendingDown size={11} /> : <Minus size={11} />}
+              {trend === "up" ? "Crescendo" : trend === "down" ? "Caindo" : "Estável"}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={100}>
+            <BarChart data={yearlyData} margin={{ top: 4, right: 0, left: -30, bottom: 0 }} barSize={20}>
+              <XAxis dataKey="year" tick={{ fontSize: 10 }} stroke="currentColor" className="opacity-50" />
+              <YAxis tick={{ fontSize: 9 }} stroke="currentColor" className="opacity-40" tickFormatter={(v) => `R$${v.toFixed(2)}`} />
+              <Tooltip
+                cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  return (
+                    <div style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, padding: "6px 10px", fontSize: 11, color: "hsl(var(--foreground))" }}>
+                      <p style={{ fontWeight: 600, marginBottom: 2 }}>{label}</p>
+                      <p>Total pago: R$ {Number(payload[0].value).toFixed(2)} / ação</p>
+                    </div>
+                  )
+                }}
+              />
+              <Bar dataKey="total" radius={[3, 3, 0, 0]}>
+                {yearlyData.map((entry, i) => {
+                  const isLast = i === yearlyData.length - 1
+                  const isPrev = i === yearlyData.length - 2
+                  const isGrowing = isLast && yearlyData.length >= 2 && entry.total >= yearlyData[i - 1]?.total
+                  return (
+                    <Cell
+                      key={entry.year}
+                      fill={isLast ? (isGrowing ? "#10b981" : "#ef4444") : isPrev ? "hsl(var(--primary))" : "#6b7280"}
+                      opacity={isLast || isPrev ? 1 : 0.5}
+                    />
+                  )
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Interpretação */}
-      <div className="mt-3 text-xs text-muted-foreground">
+      <div className="text-xs text-muted-foreground">
         {analysis.tag === "Aristócrata" && (
           <span>✦ Empresa com histórico de mais de 5 anos pagando e crescendo dividendos — alta segurança de renda.</span>
         )}

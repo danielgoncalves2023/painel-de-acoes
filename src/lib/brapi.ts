@@ -53,7 +53,7 @@ export async function getQuoteWithModules(ticker: string): Promise<QuoteWithModu
   const [base, profile, yfStats, yfDivs] = await Promise.allSettled([
     get<{ results: QuoteWithModules[] }>(`/quote/${ticker}`),
     get<{ results: QuoteWithModules[] }>(`/quote/${ticker}?modules=summaryProfile`),
-    yahooFinance.quoteSummary(`${ticker}.SA`, { modules: ["summaryDetail", "defaultKeyStatistics", "financialData"] }).catch(() => null),
+    yahooFinance.quoteSummary(`${ticker}.SA`, { modules: ["summaryDetail", "defaultKeyStatistics", "financialData", "price"] }).catch(() => null),
     yahooFinance.chart(`${ticker}.SA`, { period1: threeYearsAgo, interval: "1mo" }).catch(() => null)
   ])
 
@@ -65,6 +65,7 @@ export async function getQuoteWithModules(ticker: string): Promise<QuoteWithModu
   const stats = yf?.summaryDetail
   const dks = yf?.defaultKeyStatistics
   const fd = yf?.financialData
+  const priceModule = (yf as any)?.price
 
   const historyDividend = divs.map((d: any) => ({
     date: typeof d.date === "object" ? d.date.toISOString() : new Date(d.date).toISOString(),
@@ -74,8 +75,20 @@ export async function getQuoteWithModules(ticker: string): Promise<QuoteWithModu
   const currentPrice = (b as Quote).regularMarketPrice
   const dyFromHistory = calcDyFromHistory(historyDividend, currentPrice)
 
+  const brapiBase = b as any
+
+  // LPA: BRAPI retorna null para units — usa Yahoo trailingEps como fallback
+  const earningsPerShare = brapiBase.earningsPerShare ?? dks?.trailingEps ?? null
+
+  // P/L: BRAPI retorna null para units — usa trailingPE do Yahoo ou recalcula
+  const priceEarnings = brapiBase.priceEarnings
+    ?? (dks as any)?.trailingPE
+    ?? (earningsPerShare && currentPrice && earningsPerShare > 0 ? currentPrice / earningsPerShare : null)
+
   return {
     ...b,
+    earningsPerShare,
+    priceEarnings,
     defaultKeyStatistics: {
       ...((b as QuoteWithModules).defaultKeyStatistics),
       ...dks,
@@ -91,6 +104,13 @@ export async function getQuoteWithModules(ticker: string): Promise<QuoteWithModu
       ? stats.dividendYield * 100
       : (b as QuoteWithModules).dividendYield),
     historyDividend,
+    // marketCap: prefere BRAPI, fallback Yahoo price module (cobre units como TAEE11)
+    marketCap: brapiBase.marketCap ?? priceModule?.marketCap ?? null,
+    exDividendDate: stats?.exDividendDate
+      ? (stats.exDividendDate instanceof Date
+          ? stats.exDividendDate.toISOString().split("T")[0]
+          : String(stats.exDividendDate).split("T")[0])
+      : null,
   } as QuoteWithModules
 }
 

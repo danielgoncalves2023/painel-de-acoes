@@ -1,7 +1,6 @@
 import { QuoteWithModules } from "@/types"
 
-export interface ValuationResult {
-  price: number
+export interface GrahamBazinResult {
   grahamFairPrice: number | null
   grahamMargin: number | null
   bazinCeilingPrice: number | null
@@ -9,55 +8,68 @@ export interface ValuationResult {
   avgDividend3y: number | null
 }
 
-export function calculateValuation(quote: QuoteWithModules): ValuationResult {
-  const currentPrice = quote.regularMarketPrice
-
+/**
+ * Calcula Graham e Bazin a partir de dados brutos.
+ * Fonte única de verdade usada tanto na tela de detalhes quanto no Screener.
+ *
+ * Margem = (valorJusto - precoAtual) / precoAtual × 100
+ * Divisor Bazin = número real de anos com pagamento (não fixo em 3).
+ */
+export function calcGrahamBazin(
+  lpa: number,
+  vpa: number,
+  historyDividend: { date: string; amount: number }[],
+  currentPrice: number
+): GrahamBazinResult {
   // Graham
-  const eps = quote.earningsPerShare // LPA
-  const bvps = quote.defaultKeyStatistics?.bookValue // VPA
   let grahamFairPrice: number | null = null
   let grahamMargin: number | null = null
-
-  if (eps && bvps && eps > 0 && bvps > 0) {
-    grahamFairPrice = Math.sqrt(22.5 * eps * bvps)
+  if (lpa > 0 && vpa > 0 && currentPrice > 0) {
+    grahamFairPrice = Math.sqrt(22.5 * lpa * vpa)
     grahamMargin = ((grahamFairPrice - currentPrice) / currentPrice) * 100
   }
 
-  // Bazin
+  // Bazin — média anual dos últimos 3 anos pelo número real de anos com pagamento
   let avgDividend3y: number | null = null
   let bazinCeilingPrice: number | null = null
   let bazinMargin: number | null = null
 
-  if (quote.historyDividend && quote.historyDividend.length > 0) {
+  if (historyDividend.length > 0 && currentPrice > 0) {
     const now = new Date()
     const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate())
-    
-    // Filtra dividendos apenas dos últimos 3 anos exatos
-    const recentDivs = quote.historyDividend.filter(d => {
+
+    const recentDivs = historyDividend.filter(d => {
       const dDate = new Date(d.date)
       return dDate >= threeYearsAgo && dDate <= now
     })
 
     if (recentDivs.length > 0) {
-      const totalAmount = recentDivs.reduce((acc, d) => acc + d.amount, 0)
-      
-      // Como o filtro 'recentDivs' cobre exatamente um intervalo de 3 anos (36 meses),
-      // dividimos a soma total dos proventos por 3 para obter a média anual correta.
-      const divisor = 3
-      avgDividend3y = totalAmount / divisor
-
-      // Preço Teto Bazin com 8%
+      const byYear: Record<number, number> = {}
+      for (const d of recentDivs) {
+        const yr = new Date(d.date).getFullYear()
+        byYear[yr] = (byYear[yr] || 0) + d.amount
+      }
+      const years = Object.keys(byYear)
+      const totalAmount = Object.values(byYear).reduce((s, v) => s + v, 0)
+      avgDividend3y = totalAmount / Math.max(years.length, 1)
       bazinCeilingPrice = avgDividend3y / 0.08
       bazinMargin = ((bazinCeilingPrice - currentPrice) / currentPrice) * 100
     }
   }
 
-  return {
-    price: currentPrice,
-    grahamFairPrice,
-    grahamMargin,
-    bazinCeilingPrice,
-    bazinMargin,
-    avgDividend3y,
-  }
+  return { grahamFairPrice, grahamMargin, bazinCeilingPrice, bazinMargin, avgDividend3y }
+}
+
+export interface ValuationResult extends GrahamBazinResult {
+  price: number
+}
+
+export function calculateValuation(quote: QuoteWithModules): ValuationResult {
+  const currentPrice = quote.regularMarketPrice
+  const lpa = quote.earningsPerShare ?? 0
+  const vpa = quote.defaultKeyStatistics?.bookValue ?? 0
+
+  const result = calcGrahamBazin(lpa, vpa, quote.historyDividend ?? [], currentPrice)
+
+  return { price: currentPrice, ...result }
 }
