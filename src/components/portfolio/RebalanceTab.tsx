@@ -70,10 +70,10 @@ export function RebalanceTab() {
       calculated.forEach(p => total += p.currentValue)
       setTotalValue(total)
 
-      // Initialize targets for any new position to 0 if not set
-      const newTargets = { ...targetMap }
+      // Initialize targets only for active positions to their saved target or 0
+      const newTargets: Record<string, number> = {}
       calculated.forEach(p => {
-        if (newTargets[p.ticker] === undefined) newTargets[p.ticker] = 0
+        newTargets[p.ticker] = targetMap[p.ticker] !== undefined ? targetMap[p.ticker] : 0
       })
 
       const rebalancePos = calculated.map(p => ({
